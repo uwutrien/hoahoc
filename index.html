@@ -3,162 +3,273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Hóa 12 - Đại Cương Kim Loại</title>
-    <!-- Import face-api.js từ CDN -->
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <style>
-        /* --- CSS Styles --- */
-        :root {
-            --primary-color: #6c5ce7;
-            --secondary-color: #a29bfe;
-            --bg-color: #1e272e;
-            --card-bg: #2f3640;
-            --text-color: #f5f6fa;
-            --success: #00b894;
-            --error: #d63031;
-        }
+    <title>Chemistry IUPAC Lab - Trần Minh Triển 12A1</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap');
+
+        :root {
+            --chem-cyan: #22d3ee; --chem-purple: #a855f7; --chem-green: #4ade80;
+            --chem-amber: #fbbf24; --danger: #ff3366; --bg: #060b18;
         }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
-            position: relative;
+            margin: 0; padding: 0; min-height: 100vh;
+            background: var(--bg); color: #e2e8f0;
+            font-family: 'Space Grotesk', sans-serif;
+            overflow-x: hidden; scroll-behavior: smooth;
         }
 
-        /* Camera Container */
-        #camera-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 160px;
-            height: 120px;
-            border: 2px solid var(--secondary-color);
-            border-radius: 10px;
-            overflow: hidden;
-            z-index: 100;
-            box-shadow: 0 0 15px rgba(108, 92, 231, 0.5);
-            background: #000;
+        .lab-overlay {
+            position: fixed; inset: 0; z-index: -1;
+            background: radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.05), transparent);
         }
 
-        #video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1); /* Lật gương mặt cho tự nhiên */
+        /* RADAR PANEL */
+        .radar-box {
+            position: fixed; top: 20px; right: 20px; z-index: 1000;
+            width: 180px; border-radius: 15px; overflow: hidden;
+            border: 2px solid var(--chem-cyan); background: #000;
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+        }
+        .cam-view { position: relative; width: 100%; height: 135px; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        #target-dot {
+            position: absolute; width: 12px; height: 12px; background: var(--danger);
+            border: 2px solid #fff; border-radius: 50%; pointer-events: none;
+            transform: translate(-50%, -50%); transition: 0.1s; z-index: 1001; display: none;
+        }
+        .radar-status { font-size: 10px; text-align: center; background: var(--chem-cyan); color: #000; font-weight: 700; padding: 4px; font-family: 'Fira Code'; }
+
+        .screen {
+            display: none; flex-direction: column; align-items: center;
+            width: 90%; max-width: 850px; margin: 50px auto;
+            padding: 40px; border-radius: 25px;
+            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(25px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .active { display: flex; }
+
+        h1 { font-size: 2.2rem; text-align: center; background: linear-gradient(to right, var(--chem-cyan), #fff, var(--chem-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 10px 0; }
+
+        .tuto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 25px 0; width: 100%; }
+        .tuto-card { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; }
+        .tuto-card b { color: var(--chem-cyan); display: block; margin-bottom: 5px; }
+
+        .stats-bar { width: 100%; display: flex; justify-content: space-between; margin-bottom: 25px; font-family: 'Fira Code'; border-bottom: 1px solid var(--chem-purple); padding-bottom: 10px; }
+        .q-card { width: 100%; font-size: 1.4rem; font-weight: 700; padding: 25px; border-radius: 15px; background: rgba(255,255,255,0.03); border-left: 8px solid var(--chem-purple); margin-bottom: 25px; }
+        .opt-list { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+        .opt-item { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 2px solid #1e293b; position: relative; overflow: hidden; transition: 0.2s; font-size: 1.1rem; }
+        .opt-item.hovered { border-color: var(--chem-amber); background: rgba(251, 191, 36, 0.1); transform: translateX(10px); }
+        .opt-item.correct { background: var(--chem-green) !important; color: #000; font-weight: 700; }
+        .opt-item.wrong { background: var(--danger) !important; color: #fff; }
+        .progress-bar { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--chem-amber); width: 0%; transition: width 0.05s linear; }
+
+        .btn-action { background: var(--chem-cyan); color: #000; border: none; padding: 15px 45px; border-radius: 50px; font-weight: 700; cursor: pointer; font-size: 1rem; margin-top: 20px; transition: 0.3s; }
+        .btn-action:hover { box-shadow: 0 0 20px var(--chem-cyan); transform: scale(1.05); }
+
+        #preloader { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <div class="lab-overlay"></div>
+
+    <div id="preloader">
+        <div style="color: var(--chem-cyan); font-family: 'Fira Code'; font-size: 1.2rem;">LOADING IUPAC DATABASE...</div>
+        <div id="loading-msg" style="font-size: 0.8rem; margin-top: 15px; color: #475569;">Đang kết nối Camera và nạp thư viện AI...</div>
+    </div>
+
+    <div class="radar-box">
+        <div class="radar-status" id="radar-txt">SYSTEM OFFLINE</div>
+        <div class="cam-view">
+            <div id="target-dot"></div>
+            <video id="input_video"></video>
+        </div>
+    </div>
+
+    <div id="start-screen" class="screen active">
+        <p style="letter-spacing: 3px; color: var(--chem-purple); font-weight: 700; font-size: 0.8rem; margin-bottom: 0;">INTERNATIONAL NOMENCLATURE</p>
+        <h1>IUPAC CHEMISTRY LAB</h1>
+        <p>Thí nghiệm viên: <b>Trần Minh Triển (12A1)</b></p>
+        
+        <div class="tuto-grid">
+            <div class="tuto-card"><b>TRÁI/PHẢI (A/B)</b> Nghiêng đầu dứt khoát sang hai bên để chọn.</div>
+            <div class="tuto-card"><b>LÊN/XUỐNG (C/D)</b> Ngước cằm lên hoặc cúi xuống để chọn.</div>
+            <div class="tuto-card"><b>XÁC NHẬN</b> Giữ nguyên vị trí hồng tâm đỏ 1 giây.</div>
+            <div class="tuto-card"><b>IUPAC NAME</b> Đã cập nhật tên nguyên tố theo chuẩn quốc tế.</div>
+        </div>
+
+        <button class="btn-action" onclick="startApp()">KHỞI CHẠY THÍ NGHIỆM</button>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div class="stats-bar">
+            <span id="q-num" style="color: var(--chem-cyan);">UNIT: 01/20</span>
+            <span id="score-val" style="color: var(--chem-amber);">SCORE: 000</span>
+        </div>
+        <div id="question" class="q-card">Initializing...</div>
+        <div class="opt-list">
+            <div class="opt-item" id="opt-A"><b>A.</b> <span id="txt-A"></span><div class="progress-bar" id="pb-A"></div></div>
+            <div class="opt-item" id="opt-B"><b>B.</b> <span id="txt-B"></span><div class="progress-bar" id="pb-B"></div></div>
+            <div class="opt-item" id="opt-C"><b>C.</b> <span id="txt-C"></span><div class="progress-bar" id="pb-C"></div></div>
+            <div class="opt-item" id="opt-D"><b>D.</b> <span id="txt-D"></span><div class="progress-bar" id="pb-D"></div></div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h1>PHÂN TÍCH KẾT QUẢ</h1>
+        <div style="font-size: 4.5rem; font-weight: 700; color: var(--chem-amber); margin: 20px 0;" id="final-score">0</div>
+        <p id="rank-text" style="font-size: 1.5rem; color: var(--chem-green); font-family: 'Fira Code';"></p>
+        <button class="btn-action" onclick="location.reload()">THỬ NGHIỆM MỚI</button>
+    </div>
+
+    <script>
+        // BỘ CÂU HỎI CHUẨN IUPAC (TÊN TIẾNG ANH)
+        const rawQuestions = [
+            { q: "Kim loại (Metal) nào dẫn điện tốt nhất?", a: "Silver (Ag)", b: "Copper (Cu)", c: "Gold (Au)", d: "Iron (Fe)", ans: "A" },
+            { q: "Metal có nhiệt độ nóng chảy cao nhất dùng làm dây tóc bóng đèn?", a: "Iron (Fe)", b: "Tungsten (W)", c: "Copper (Cu)", d: "Chromium (Cr)", ans: "B" },
+            { q: "Nguyên tố nào sau đây thuộc nhóm kim loại kiềm (Alkali metals)?", a: "Magnesium (Mg)", b: "Calcium (Ca)", c: "Sodium (Na)", d: "Aluminium (Al)", ans: "C" },
+            { q: "Metal nào sau đây có thể tan trong dung dịch NaOH?", a: "Iron (Fe)", b: "Aluminium (Al)", c: "Copper (Cu)", d: "Silver (Ag)", ans: "B" },
+            { q: "Metal cứng nhất (Hardest metal) trong các chất sau là?", a: "Iron (Fe)", b: "Copper (Cu)", c: "Chromium (Cr)", d: "Gold (Au)", ans: "C" },
+            { q: "Metal tồn tại ở trạng thái lỏng (Liquid state) ở điều kiện thường?", a: "Mercury (Hg)", b: "Lead (Pb)", c: "Tin (Sn)", d: "Sodium (Na)", ans: "A" },
+            { q: "Dãy gồm các metal tác dụng với nước ở nhiệt độ thường?", a: "K, Na, Ca, Ba", b: "Cu, Ag, Au", c: "Fe, Zn, Al", d: "Mg, Al, Ca", ans: "A" },
+            { q: "Quặng Bauxite (Al2O3.2H2O) dùng để sản xuất metal nào?", a: "Iron (Fe)", b: "Aluminium (Al)", c: "Magnesium (Mg)", d: "Copper (Cu)", ans: "B" },
+            { q: "Iron (Fe) bị thụ động hóa (Passive) trong dung dịch axit nào?", a: "HCl", b: "H2SO4 đặc, nguội", c: "H2SO4 loãng", d: "HNO3 loãng", ans: "B" },
+            { q: "Metal nào dẻo nhất (Most ductile), có thể dát siêu mỏng?", a: "Silver (Ag)", b: "Gold (Au)", c: "Aluminium (Al)", d: "Copper (Cu)", ans: "B" },
+            { q: "Để bảo vệ vỏ tàu biển bằng thép, người ta gắn tấm metal nào?", a: "Zinc (Zn)", b: "Copper (Cu)", c: "Silver (Ag)", d: "Lead (Pb)", ans: "A" },
+            { q: "Tính chất hóa học chung của Metal là gì?", a: "Tính khử (Reducing)", b: "Tính oxi hóa (Oxidizing)", c: "Tính Acid", d: "Tính Base", ans: "A" },
+            { q: "Metal nhẹ nhất (Density thấp nhất) là?", a: "Lithium (Li)", b: "Sodium (Na)", c: "Potassium (K)", d: "Aluminium (Al)", ans: "A" },
+            { q: "Thép (Steel) là hợp kim của Iron với Carbon (C) có hàm lượng C?", a: "< 2%", b: "2% - 5%", c: "5% - 10%", d: "> 10%", ans: "A" },
+            { q: "Cấu hình electron lớp ngoài cùng của kim loại kiềm thổ (Alkaline earth metals)?", a: "ns1", b: "ns2", c: "ns2np1", d: "ns2np2", ans: "B" },
+            { q: "Hợp kim của Copper (Cu) và Zinc (Zn) có tên quốc tế là?", a: "Cast Iron", b: "Steel", c: "Brass", d: "Duralumin", ans: "C" },
+            { q: "Để điều chế Aluminium (Al), người ta dùng phương pháp điện phân nóng chảy chất nào?", a: "AlCl3", b: "Al2(SO4)3", c: "Al2O3", d: "Al(NO3)3", ans: "C" },
+            { q: "Metal nào phản ứng với dung dịch HCl giải phóng khí H2?", a: "Silver (Ag)", b: "Copper (Cu)", c: "Magnesium (Mg)", d: "Gold (Au)", ans: "C" },
+            { q: "Sự gỉ sét của Iron trong không khí ẩm là loại ăn mòn (Corrosion) nào?", a: "Chemical", b: "Electrochemical", c: "Physical", d: "Biological", ans: "B" },
+            { q: "Ăn mòn điện hóa phát sinh yếu tố vật lý nào sau đây?", a: "Electric current", b: "Heat", c: "Magnetic field", d: "Light", ans: "A" }
+        ];
+
+        let questions = [];
+        let currentIdx = 0, score = 0, isLocked = false, selectedKey = null, holdValue = 0;
+        const HOLD_REQ = 20; // Khoảng 1 giây
+        const DEADZONE_H = 0.18; 
+        const DEADZONE_V = 0.12;
+
+        const videoElement = document.getElementById('input_video');
+        const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+        
+        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.7 });
+        faceMesh.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => { await faceMesh.send({image: videoElement}); },
+            width: 480, height: 360
+        });
+
+        // Xử lý Timeout nạp AI
+        let loaderTimer = setTimeout(() => {
+            document.getElementById('loading-msg').innerHTML = "<b style='color:var(--danger)'>⚠ KẸT CAMERA:</b> Hãy nhấn 'Cho phép' và đóng các tab dùng Cam khác.";
+        }, 8000);
+
+        function startApp() {
+            document.getElementById('radar-txt').innerText = "CONNECTING...";
+            camera.start().then(() => {
+                questions = rawQuestions.sort(() => Math.random() - 0.5);
+                document.getElementById('start-screen').classList.remove('active');
+                document.getElementById('game-screen').classList.add('active');
+                document.getElementById('target-dot').style.display = "block";
+                showQuestion();
+            }).catch(e => {
+                alert("Không thể khởi động Camera. Hãy kiểm tra quyền truy cập!");
+            });
         }
 
-        #canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
+        function showQuestion() {
+            if (currentIdx >= questions.length) { endGame(); return; }
+            isLocked = false; selectedKey = null; holdValue = 0;
+            document.getElementById('radar-txt').innerText = "TRACKING...";
+            
+            document.querySelectorAll('.opt-item').forEach(el => {
+                el.className = 'opt-item';
+                el.querySelector('.progress-bar').style.width = '0%';
+            });
+
+            const q = questions[currentIdx];
+            document.getElementById('question').innerText = q.q;
+            document.getElementById('txt-A').innerText = q.a;
+            document.getElementById('txt-B').innerText = q.b;
+            document.getElementById('txt-C').innerText = q.c;
+            document.getElementById('txt-D').innerText = q.d;
+            document.getElementById('q-num').innerText = `UNIT: ${String(currentIdx+1).padStart(2,'0')}/20`;
+            window.scrollTo(0,0);
         }
 
-        .face-status {
-            position: fixed;
-            bottom: 150px;
-            right: 20px;
-            background: rgba(0,0,0,0.7);
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            color: #fff;
-            z-index: 101;
+        function onResults(results) {
+            clearTimeout(loaderTimer);
+            document.getElementById('preloader').style.display = "none";
+            const dot = document.getElementById('target-dot');
+
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                const lm = results.multiFaceLandmarks[0];
+                const nose = lm[1], left = lm[33], right = lm[263], top = lm[10], bot = lm[152];
+                const h = (nose.x - left.x) / (right.x - left.x);
+                const v = (nose.y - top.y) / (bot.y - top.y);
+
+                dot.style.left = (1 - h) * 100 + '%';
+                dot.style.top = v * 100 + '%';
+
+                if (isLocked) return;
+
+                let key = null;
+                if (h < 0.5 - DEADZONE_H) key = 'A';
+                else if (h > 0.5 + DEADZONE_H) key = 'B';
+                else if (v < 0.5 - DEADZONE_V) key = 'C';
+                else if (v > 0.5 + DEADZONE_V) key = 'D';
+
+                if (key && key === selectedKey) {
+                    holdValue++;
+                    document.getElementById(`pb-${key}`).style.width = (holdValue / HOLD_REQ * 100) + '%';
+                    if (holdValue >= HOLD_REQ) confirmAnswer(key);
+                } else {
+                    selectedKey = key; holdValue = 0;
+                    document.querySelectorAll('.opt-item').forEach(el => {
+                        el.classList.remove('hovered');
+                        el.querySelector('.progress-bar').style.width = '0%';
+                    });
+                    if (key) {
+                        document.getElementById(`opt-${key}`).classList.add('hovered');
+                        document.getElementById('radar-txt').innerText = "LOCKING: " + key;
+                    } else {
+                        document.getElementById('radar-txt').innerText = "STABLE";
+                    }
+                }
+            }
         }
 
-        /* Main Container */
-        .game-container {
-            width: 90%;
-            max-width: 600px;
-            background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            text-align: center;
-            position: relative;
-            z-index: 10;
+        function confirmAnswer(key) {
+            isLocked = true;
+            const ans = questions[currentIdx].ans;
+            if (key === ans) {
+                document.getElementById(`opt-${key}`).classList.add('correct');
+                score += 10;
+            } else {
+                document.getElementById(`opt-${key}`).classList.add('wrong');
+                document.getElementById(`opt-${ans}`).classList.add('correct');
+            }
+            document.getElementById('score-val').innerText = `SCORE: ${String(score).padStart(3, '0')}`;
+            setTimeout(() => { currentIdx++; showQuestion(); }, 1500);
         }
 
-        h1 {
-            margin-bottom: 10px;
-            color: var(--secondary-color);
-            font-size: 1.5rem;
+        function endGame() {
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('result-screen').classList.add('active');
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('rank-text').innerText = score >= 160 ? "RANK: S (EXCELLENT)" : "RANK: B (PASSED)";
+            camera.stop();
         }
-
-        .stats {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            color: #dcdde1;
-        }
-
-        /* Question Section */
-        .question-box {
-            font-size: 1.2rem;
-            margin-bottom: 25px;
-            min-height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .options-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .option-btn {
-            background-color: #353b48;
-            border: 2px solid #4b4b4b;
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .option-btn:hover {
-            background-color: #4834d4;
-        }
-
-        .option-btn.active {
-            background-color: var(--primary-color);
-            border-color: var(--secondary-color);
-            box-shadow: 0 0 15px var(--primary-color);
-            transform: scale(1.02);
-        }
-
-        .option-btn.correct {
-            background-color: var(--success) !important;
-            border-color: #55efc4 !important;
-        }
-
-        .option-btn.wrong {
-            background-color: var(--error) !important;
-            border-color: #ff7675 !important;
-        }
-
-        /* Loading Screen */
-        #loading-screen {
-            position: absolute;
-            top: 0;
-            left
+    </script>
+</body>
+</html>
